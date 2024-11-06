@@ -1,0 +1,80 @@
+#!/bin/bash
+
+## Schbsub>  parameters ##
+
+#BSUB -J mt_dnn_xflow               # job name
+#BSUB -o %J.stdout                  # optional: have output written to specific file
+#BSUB -e %J.stderr                  # optional: have errors written to specific file
+# #BSUB -q rb_highend                 # optional: use highend nodes w/ Volta GPUs (default: Geforce GPUs)
+#BSUB -W 12:00                     # fill in desired wallclock time [hours,]minutes (hours are optional)
+#BSUB -n 10                          # min CPU cores,max CPU cores (max cores is optional)
+#BSUB -M 8192                       # fill in required amount of RAM (in Mbyte)
+# #BSUB -R "span[hosts=1] select[hname!='abts55120' && hname!='abts55125']"            # run on single host (if using more than 1 CPU cores)
+# #BSUB -R "span[ptile=28]"         # optional: fill in to specify cores per node (max 28)
+# #BSUB -P myProject                # optional: fill in cluster project
+#BSUB -gpu "num=1"                  # use num GPU (in explusive process mode)
+
+
+
+# Environment variables
+export RB_ROOT_PATH=$PWD
+export RB_MT_DNN_PATH=$RB_ROOT_PATH/..
+export RB_DHAL_PATH=$RB_ROOT_PATH/../../dhal/src
+export RB_EVAL_MAIN=$RB_ROOT_PATH/../../evaluation_framework/src
+export PYTHONPATH=$PYTHONPATH:$RB_MT_DNN_PATH:$RB_DHAL_PATH:$RB_EVAL_MAIN
+export HYDRA_FULL_ERROR=1
+export APPTAINERENV_PYTHONPATH=$PYTHONPATH
+export APPTAINERENV_HYDRA_FULL_ERROR=1
+
+container="/shares/CC_v_Dev_VideoGen3_all/50_CV/CT_MT-DNN/mt_dnn_docker_images/xflow_2.1.6_3cb188654b1.sif"
+project_path=/home/dem7clj/mt-dnn/src/mt_dnn
+
+# apptainer exec --bind /shares,/fs --nv $container sh -c "cd $project_path && python train.py --config-name=train_abstatt"
+# apptainer exec --bind /shares,/fs --nv $container sh -c "cd $project_path && python quantize.py --config-name=quantize_local"
+apptainer exec --bind /shares,/fs --nv $container sh -c "cd $project_path && /bin/bash"
+
+# python -m debugpy --listen 0.0.0.0:5678 --wait-for-client train.py --config-name=train_abstatt
+# python -m debugpy --listen 0.0.0.0:5678 --wait-for-client eval.py --config-name=eval_abstatt
+# python train.py --config-name=train_abstatt
+# python train.py --config-name=train_local
+# python eval.py --config-name=eval_abstatt
+
+
+# bsub -J outputs/share/xflow_singletask_arrows -W 24:00 -n 10 -M 8192 -gpu "num=1" -q rb_t4 -R "span[hosts=1] select[hname!='abts55120' && hname!='abts55125']" ./launch_job.bsub 
+
+
+
+
+# python scripts/arrows_offline_evaluation.py outputs/share/bolt_xflow_comparison/bolt_singletask_arrows_test/train/vdet_eval_out/images.csv.gz outputs/share/bolt_xflow_comparison/bolt_singletask_arrows_test/train/vdet_eval_out/annotations.csv.gz outputs/share/bolt_xflow_comparison/bolt_singletask_arrows_test/train/vdet_eval_out/detections.csv.gz outputs/share/bolt_xflow_comparison/bolt_singletask_arrows_test/train/vdet_eval_out/offline_eval
+
+
+# outputs/share/bolt_xflow_comparison/bolt_singletask_arrows_test/train/vdet_eval_out/annotations.csv.gz
+# outputs/share/bolt_xflow_comparison/bolt_singletask_arrows_test/train/vdet_eval_out/detections.csv.gz
+# outputs/share/bolt_xflow_comparison/bolt_singletask_arrows_test/train/vdet_eval_out/images.csv.gz
+
+
+
+
+
+# python common/object_detection/anchor_generation/compute_anchors.py --config-name=compute_anchors
+
+# python eval.py --config-name eval_abstatt
+# python scripts/arrows_offline_evaluation.py --image_path outputs/share/multitask_arrows_semseg_test_eval/eval/training/arrows/csvs/images/arrows_38447.csv.gz --annotations_path outputs/share/multitask_arrows_semseg_test_eval/eval/training/arrows/csvs/ground_truths/arrows_38447.csv.gz --detections_path outputs/share/multitask_arrows_semseg_test_eval/eval/training/arrows/csvs/predictions/arrows_38447.csv.gz --output_path outputs/share/multitask_arrows_semseg_test_eval/eval/offline_eval_test
+
+# python scripts/arrows_offline_evaluation.py outputs/test_bolt_arrows/images.csv outputs/test_bolt_arrows/annotations.csv outputs/test_bolt_arrows/detections.csv outputs/test_bolt_arrows/eval
+
+
+# python scripts/arrows_offline_evaluation.py outputs/share/multitask_arrows_semseg_test_eval/eval/training/arrows/csvs/images/arrows_38447.csv.gz outputs/share/multitask_arrows_semseg_test_eval/eval/training/arrows/csvs/ground_truths/arrows_38447.csv.gz outputs/share/multitask_arrows_semseg_test_eval/eval/training/arrows/csvs/predictions/arrows_38447.csv.gz outputs/share/multitask_arrows_semseg_test_eval/eval/offline_eval_test
+
+#python train.py --config-name train_abstatt
+#python run_smoke_test.py --config-name=train_jenkins
+# python run_smoke_test.py --config-name=train_abstatt
+
+
+
+#python predict.py --environment abstatt --working_dir output/rtd/train_v3 --image_list_file output/scripts/rtd_image_list.txt --init_checkpoint_paths output/rtd/train_v3
+# bsub -J output/rtd/logs/train_v3_predict -W 1:00 -n 2 -M 16384 -gpu "num=1"  ./start_training.bsub 
+
+
+
+# -R "select[hname!='abts55124' && hname!='abts55344' && hname!='abts55129' && hname!='abts55115']"
