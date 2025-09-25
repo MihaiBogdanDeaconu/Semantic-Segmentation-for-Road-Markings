@@ -1,31 +1,24 @@
 import torch
 from torch import nn
 from torch.nn import functional as F
-
 from .utils import _SimpleSegmentationModel
-
 
 __all__ = ["DeepLabV3"]
 
-
 class DeepLabV3(_SimpleSegmentationModel):
     """
-    Implements DeepLabV3 model from
-    `"Rethinking Atrous Convolution for Semantic Image Segmentation"
-    <https://arxiv.org/abs/1706.05587>`_.
-
-    Arguments:
-        backbone (nn.Module): the network used to compute the features for the model.
-            The backbone should return an OrderedDict[Tensor], with the key being
-            "out" for the last feature map used, and "aux" if an auxiliary classifier
-            is used.
-        classifier (nn.Module): module that takes the "out" element returned from
-            the backbone and returns a dense prediction.
-        aux_classifier (nn.Module, optional): auxiliary classifier used during training
+    A simple container for the DeepLabV3 model, inheriting the forward pass
+    logic from _SimpleSegmentationModel.
     """
     pass
 
 class DeepLabHeadV3Plus(nn.Module):
+    """
+    The head of the DeepLabV3+ model.
+
+    It combines high-level features from the ASPP module with low-level
+    features from the backbone for more detailed segmentation.
+    """
     def __init__(self, in_channels, low_level_channels, num_classes, aspp_dilate=[12, 24, 36]):
         super(DeepLabHeadV3Plus, self).__init__()
         self.project = nn.Sequential( 
@@ -45,12 +38,18 @@ class DeepLabHeadV3Plus(nn.Module):
         self._init_weight()
 
     def forward(self, feature):
-        low_level_feature = self.project( feature['low_level'] )
+        """
+        Defines the forward pass for the V3+ head.
+        """
+        low_level_feature = self.project(feature['low_level'])
         output_feature = self.aspp(feature['out'])
         output_feature = F.interpolate(output_feature, size=low_level_feature.shape[2:], mode='bilinear', align_corners=False)
-        return self.classifier( torch.cat( [ low_level_feature, output_feature ], dim=1 ) )
+        return self.classifier(torch.cat([low_level_feature, output_feature], dim=1))
     
     def _init_weight(self):
+        """
+        Initializes the weights of the module.
+        """
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
                 nn.init.kaiming_normal_(m.weight)
@@ -59,6 +58,11 @@ class DeepLabHeadV3Plus(nn.Module):
                 nn.init.constant_(m.bias, 0)
 
 class DeepLabHead(nn.Module):
+    """
+    The head of the original DeepLabV3 model.
+
+    It uses the ASPP module on high-level features to produce the final output.
+    """
     def __init__(self, in_channels, num_classes, aspp_dilate=[12, 24, 36]):
         super(DeepLabHead, self).__init__()
 
@@ -72,9 +76,15 @@ class DeepLabHead(nn.Module):
         self._init_weight()
 
     def forward(self, feature):
-        return self.classifier( feature['out'] )
+        """
+        Defines the forward pass for the V3 head.
+        """
+        return self.classifier(feature['out'])
 
     def _init_weight(self):
+        """
+        Initializes the weights of the module.
+        """
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
                 nn.init.kaiming_normal_(m.weight)
@@ -83,18 +93,17 @@ class DeepLabHead(nn.Module):
                 nn.init.constant_(m.bias, 0)
 
 class AtrousSeparableConvolution(nn.Module):
-    """ Atrous Separable Convolution
+    """
+    Implements a depthwise separable convolution with atrous (dilated) convolution.
+    This can make the model more efficient.
     """
     def __init__(self, in_channels, out_channels, kernel_size,
-                            stride=1, padding=0, dilation=1, bias=True):
+                 stride=1, padding=0, dilation=1, bias=True):
         super(AtrousSeparableConvolution, self).__init__()
         self.body = nn.Sequential(
-            # Separable Conv
-            nn.Conv2d( in_channels, in_channels, kernel_size=kernel_size, stride=stride, padding=padding, dilation=dilation, bias=bias, groups=in_channels ),
-            # PointWise Conv
-            nn.Conv2d( in_channels, out_channels, kernel_size=1, stride=1, padding=0, bias=bias),
+            nn.Conv2d(in_channels, in_channels, kernel_size=kernel_size, stride=stride, padding=padding, dilation=dilation, bias=bias, groups=in_channels),
+            nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=1, padding=0, bias=bias),
         )
-        
         self._init_weight()
 
     def forward(self, x):
@@ -109,6 +118,9 @@ class AtrousSeparableConvolution(nn.Module):
                 nn.init.constant_(m.bias, 0)
 
 class ASPPConv(nn.Sequential):
+    """
+    A simple building block for the ASPP module: Conv -> BatchNorm -> ReLU.
+    """
     def __init__(self, in_channels, out_channels, dilation):
         modules = [
             nn.Conv2d(in_channels, out_channels, 3, padding=dilation, dilation=dilation, bias=False),
@@ -118,6 +130,10 @@ class ASPPConv(nn.Sequential):
         super(ASPPConv, self).__init__(*modules)
 
 class ASPPPooling(nn.Sequential):
+    """
+    The pooling branch of the ASPP module.
+    Uses adaptive average pooling to get a global context vector.
+    """
     def __init__(self, in_channels, out_channels):
         super(ASPPPooling, self).__init__(
             nn.AdaptiveAvgPool2d(1),
@@ -131,6 +147,12 @@ class ASPPPooling(nn.Sequential):
         return F.interpolate(x, size=size, mode='bilinear', align_corners=False)
 
 class ASPP(nn.Module):
+    """
+    Atrous Spatial Pyramid Pooling (ASPP) module.
+
+    This captures multi-scale context by using parallel dilated convolutions
+    with different rates.
+    """
     def __init__(self, in_channels, atrous_rates):
         super(ASPP, self).__init__()
         out_channels = 256
@@ -161,18 +183,19 @@ class ASPP(nn.Module):
         res = torch.cat(res, dim=1)
         return self.project(res)
 
-
-
 def convert_to_separable_conv(module):
+    """
+    Recursively replaces standard Conv2d layers with AtrousSeparableConvolution layers.
+    """
     new_module = module
-    if isinstance(module, nn.Conv2d) and module.kernel_size[0]>1:
+    if isinstance(module, nn.Conv2d) and module.kernel_size[0] > 1:
         new_module = AtrousSeparableConvolution(module.in_channels,
-                                      module.out_channels, 
-                                      module.kernel_size,
-                                      module.stride,
-                                      module.padding,
-                                      module.dilation,
-                                      module.bias)
+                                                module.out_channels, 
+                                                module.kernel_size,
+                                                module.stride,
+                                                module.padding,
+                                                module.dilation,
+                                                module.bias)
     for name, child in module.named_children():
         new_module.add_module(name, convert_to_separable_conv(child))
     return new_module
