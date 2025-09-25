@@ -1,7 +1,7 @@
 from torch import nn
-try: # for torchvision<0.4
+try:
     from torchvision.models.utils import load_state_dict_from_url
-except: # for torchvision>=0.4
+except:
     from torch.hub import load_state_dict_from_url
 import torch.nn.functional as F
 
@@ -27,7 +27,6 @@ def _make_divisible(v, divisor, min_value=None):
     if min_value is None:
         min_value = divisor
     new_v = max(min_value, int(v + divisor / 2) // divisor * divisor)
-    # Make sure that round down does not go down by more than 10%.
     if new_v < 0.9 * v:
         new_v += divisor
     return new_v
@@ -35,7 +34,6 @@ def _make_divisible(v, divisor, min_value=None):
 
 class ConvBNReLU(nn.Sequential):
     def __init__(self, in_planes, out_planes, kernel_size=3, stride=1, dilation=1, groups=1):
-        #padding = (kernel_size - 1) // 2
         super(ConvBNReLU, self).__init__(
             nn.Conv2d(in_planes, out_planes, kernel_size, stride, 0, dilation=dilation, groups=groups, bias=False),
             nn.BatchNorm2d(out_planes),
@@ -60,13 +58,10 @@ class InvertedResidual(nn.Module):
 
         layers = []
         if expand_ratio != 1:
-            # pw
             layers.append(ConvBNReLU(inp, hidden_dim, kernel_size=1))
 
         layers.extend([
-            # dw
             ConvBNReLU(hidden_dim, hidden_dim, stride=stride, dilation=dilation, groups=hidden_dim),
-            # pw-linear
             nn.Conv2d(hidden_dim, oup, 1, 1, 0, bias=False),
             nn.BatchNorm2d(oup),
         ])
@@ -111,12 +106,10 @@ class MobileNetV2(nn.Module):
                 [6, 320, 1, 1],
             ]
 
-        # only check the first element, assuming user knows t,c,n,s are required
         if len(inverted_residual_setting) == 0 or len(inverted_residual_setting[0]) != 4:
             raise ValueError("inverted_residual_setting should be non-empty "
                              "or a 4-element list, got {}".format(inverted_residual_setting))
 
-        # building first layer
         input_channel = _make_divisible(input_channel * width_mult, round_nearest)
         self.last_channel = _make_divisible(last_channel * max(1.0, width_mult), round_nearest)
         features = [ConvBNReLU(3, input_channel, stride=2)]
@@ -124,7 +117,6 @@ class MobileNetV2(nn.Module):
         dilation=1
         previous_dilation = 1
 
-        # building inverted residual blocks
         for t, c, n, s in inverted_residual_setting:
             output_channel = _make_divisible(c * width_mult, round_nearest)
             previous_dilation = dilation
@@ -142,18 +134,14 @@ class MobileNetV2(nn.Module):
                 else:
                     features.append(block(input_channel, output_channel, 1, dilation, expand_ratio=t))
                 input_channel = output_channel
-        # building last several layers
         features.append(ConvBNReLU(input_channel, self.last_channel, kernel_size=1))
-        # make it nn.Sequential
         self.features = nn.Sequential(*features)
 
-        # building classifier
         self.classifier = nn.Sequential(
             nn.Dropout(0.2),
             nn.Linear(self.last_channel, num_classes),
         )
 
-        # weight initialization
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
                 nn.init.kaiming_normal_(m.weight, mode='fan_out')

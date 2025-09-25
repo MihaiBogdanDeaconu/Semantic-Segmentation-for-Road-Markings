@@ -42,24 +42,14 @@ class PaintedSymbols(data.Dataset):
         41: (0, 0, 255),
     }
 
-    # id_to_color = np.array(id_to_color)
-    # MINE: id_to_train_id = np.array([c.train_id for c in classes])
-
-    # train_id_to_color = [(0, 0, 0), (128, 64, 128), (70, 70, 70), (153, 153, 153), (107, 142, 35),
-    #                      (70, 130, 180), (220, 20, 60), (0, 0, 142)]
-    # train_id_to_color = np.array(train_id_to_color)
-    # id_to_train_id = np.array([c.category_id for c in classes], dtype='uint8') - 1
-
     def __init__(self, split="train", target_type="semantic", transform=None):
         self.target_type = target_type
         self.split = split
         self.transform = transform
         self.images, self.targets = data_load.load_from_csv(r"/home/dem7clj/SemsegChallenge/Painted-Symbols-and-Restricted-Zone-Segmentation/datasetWithBackground.csv", self.split)
-        # print(self.targets[:10])
 
     @classmethod
     def decode_target(cls, target):
-        # target = target.astype('uint8') + 1
         return cls.id_to_color[target]
 
     def __getitem__(self, index):
@@ -70,8 +60,6 @@ class PaintedSymbols(data.Dataset):
             tuple: (image, target) where target is a tuple of all target types if target_type is a list with more
             than one item. Otherwise target is a json object if target_type="polygon", else the image segmentation.
         """
-        # print(index)
-        # print(len(self.targets))
         image = Image.open(self.images[index])
         target = Image.open(self.targets[index])
         if self.transform:
@@ -80,7 +68,6 @@ class PaintedSymbols(data.Dataset):
         target = torch.where(target == 0, 0, target)
         target = torch.where(target == 34, 1, target)
         target = torch.where(target == 41, 2, target)
-        # print(target)
         return image, target
 
     def __len__(self):
