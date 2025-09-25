@@ -2,48 +2,61 @@ import numpy as np
 from sklearn.metrics import confusion_matrix
 
 class _StreamMetrics(object):
+    """
+    Base class for streaming metrics.
+    """
     def __init__(self):
-        """ Overridden by subclasses """
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def update(self, gt, pred):
-        """ Overridden by subclasses """
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def get_results(self):
-        """ Overridden by subclasses """
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def to_str(self, metrics):
-        """ Overridden by subclasses """
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def reset(self):
-        """ Overridden by subclasses """
-        raise NotImplementedError()      
+        raise NotImplementedError
 
 class StreamSegMetrics(_StreamMetrics):
     """
-    Stream Metrics for Semantic Segmentation Task
+    Computes and stores semantic segmentation metrics over a stream of data.
+
+    This is useful for calculating metrics over an entire validation set
+    batch by batch, without having to store all predictions in memory.
     """
     def __init__(self, n_classes):
         self.n_classes = n_classes
         self.confusion_matrix = np.zeros((n_classes, n_classes))
 
     def update(self, label_trues, label_preds):
+        """
+        Updates the confusion matrix with a new batch of predictions.
+
+        Args:
+            label_trues (numpy.ndarray): A batch of ground truth masks.
+            label_preds (numpy.ndarray): A batch of predicted masks.
+        """
         for lt, lp in zip(label_trues, label_preds):
-            self.confusion_matrix += self._fast_hist( lt.flatten(), lp.flatten() )
+            self.confusion_matrix += self._fast_hist(lt.flatten(), lp.flatten())
     
     @staticmethod
     def to_str(results):
+        """
+        Converts the results dictionary to a human-readable string.
+        """
         string = "\n"
         for k, v in results.items():
-            if k!="Class IoU":
-                string += "%s: %f\n"%(k, v)
-        
+            if k != "Class IoU":
+                string += "%s: %f\n" % (k, v)
         return string
 
     def _fast_hist(self, label_true, label_pred):
+        """
+        An efficient way to calculate the confusion matrix.
+        """
         mask = (label_true >= 0) & (label_true < self.n_classes)
         hist = np.bincount(
             self.n_classes * label_true[mask].astype(int) + label_pred[mask],
@@ -52,11 +65,14 @@ class StreamSegMetrics(_StreamMetrics):
         return hist
 
     def get_results(self):
-        """Returns accuracy score evaluation result.
-            - overall accuracy
-            - mean accuracy
-            - mean IU
-            - fwavacc
+        """
+        Computes various segmentation metrics from the confusion matrix.
+        
+        Calculates Overall Accuracy, Mean Accuracy, Frequency Weighted IoU,
+        and Mean IoU.
+
+        Returns:
+            (dict): A dictionary of computed metrics.
         """
         hist = self.confusion_matrix
         acc = np.diag(hist).sum() / hist.sum()
@@ -77,31 +93,54 @@ class StreamSegMetrics(_StreamMetrics):
             }
         
     def reset(self):
+        """
+        Resets the confusion matrix to all zeros.
+        """
         self.confusion_matrix = np.zeros((self.n_classes, self.n_classes))
 
 class AverageMeter(object):
-    """Computes average values"""
+    """
+    A helper class to compute the average of a value over time.
+    """
     def __init__(self):
         self.book = dict()
 
     def reset_all(self):
+        """Resets all tracked values."""
         self.book.clear()
     
     def reset(self, id):
+        """Resets a specific value by its ID."""
         item = self.book.get(id, None)
         if item is not None:
             item[0] = 0
             item[1] = 0
 
     def update(self, id, val):
+        """
+        Updates a tracked value with a new reading.
+        
+        Args:
+            id (str): The identifier for the value to track.
+            val (float): The new value to add.
+        """
         record = self.book.get(id, None)
         if record is None:
             self.book[id] = [val, 1]
         else:
-            record[0]+=val
-            record[1]+=1
+            record[0] += val
+            record[1] += 1
 
     def get_results(self, id):
+        """
+        Gets the current average for a tracked value.
+
+        Args:
+            id (str): The identifier for the value.
+
+        Returns:
+            (float): The current average.
+        """
         record = self.book.get(id, None)
         assert record is not None
         return record[0] / record[1]

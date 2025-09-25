@@ -12,13 +12,13 @@ from datasets import PaintedSymbols
 from torchvision import transforms as T
 
 def get_argparser():
+    """Sets up the command-line argument parser for the prediction script."""
     parser = argparse.ArgumentParser(description="Predict segmentation masks for road markings")
 
     parser.add_argument("--input", type=str, required=True, help="Path to a single image or an image directory.")
     parser.add_argument("--output_dir", type=str, required=True, help="Directory to save the output masks.")
     parser.add_argument("--ckpt", type=str, required=True, help="Path to the trained model checkpoint.")
     
-    # Model Options
     available_models = sorted(
         name for name in network.modeling.__dict__
         if name.islower() and not name.startswith("__") and callable(network.modeling.__dict__[name])
@@ -27,13 +27,18 @@ def get_argparser():
     parser.add_argument("--separable_conv", action='store_true', default=False, help="Apply separable conv to decoder and aspp.")
     parser.add_argument("--output_stride", type=int, default=16, choices=[8, 16], help="Output stride for DeepLab.")
     
-    # Prediction Options
     parser.add_argument("--output_type", type=str, default='label', choices=['label', 'color'], help="Type of mask to save: 'label' for competition format (0,34,41), 'color' for visualization.")
     parser.add_argument("--gpu_id", type=str, default="0", help="GPU ID to use.")
 
     return parser
 
 def main():
+    """
+    Main function for predicting segmentation masks.
+
+    This function loads a trained model and runs inference on a single image
+    or a directory of images, saving the predicted masks.
+    """
     opts = get_argparser().parse_args()
     os.makedirs(opts.output_dir, exist_ok=True)
 
@@ -41,7 +46,6 @@ def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Device: {device}")
 
-    # Setup model
     model = network.modeling.__dict__[opts.model](num_classes=3, output_stride=opts.output_stride)
     if opts.separable_conv:
         network.convert_to_separable_conv(model.classifier)
@@ -74,16 +78,14 @@ def main():
             img = Image.open(img_path).convert('RGB')
             img_tensor = transform(img).unsqueeze(0).to(device)
 
-            pred = model(img_tensor).max(1)[1].cpu().numpy()[0] # HW, values are 0, 1, 2
+            pred = model(img_tensor).max(1)[1].cpu().numpy()[0]
 
             if opts.output_type == 'label':
-                # Remap train IDs (0, 1, 2) to original label IDs (0, 34, 41)
                 output_mask = np.zeros_like(pred, dtype=np.uint8)
                 output_mask[pred == 1] = 34  # crosswalk
                 output_mask[pred == 2] = 41  # restricted_area
                 mask_img = Image.fromarray(output_mask)
-            else: # 'color'
-                # Decode to color image for visualization
+            else:
                 colorized_mask = PaintedSymbols.decode_target(pred).astype('uint8')
                 mask_img = Image.fromarray(colorized_mask)
             

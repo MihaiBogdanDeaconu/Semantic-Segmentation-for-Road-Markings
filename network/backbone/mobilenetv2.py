@@ -7,22 +7,14 @@ import torch.nn.functional as F
 
 __all__ = ['MobileNetV2', 'mobilenet_v2']
 
-
 model_urls = {
     'mobilenet_v2': 'https://download.pytorch.org/models/mobilenet_v2-b0353104.pth',
 }
 
-
 def _make_divisible(v, divisor, min_value=None):
     """
-    This function is taken from the original tf repo.
-    It ensures that all layers have a channel number that is divisible by 8
-    It can be seen here:
-    https://github.com/tensorflow/models/blob/master/research/slim/nets/mobilenet/mobilenet.py
-    :param v:
-    :param divisor:
-    :param min_value:
-    :return:
+    Ensures that all layers have a channel count that is divisible by 8.
+    This is an internal helper function from the original implementation.
     """
     if min_value is None:
         min_value = divisor
@@ -33,6 +25,9 @@ def _make_divisible(v, divisor, min_value=None):
 
 
 class ConvBNReLU(nn.Sequential):
+    """
+    A simple sequential module for a common pattern: Conv -> BatchNorm -> ReLU6.
+    """
     def __init__(self, in_planes, out_planes, kernel_size=3, stride=1, dilation=1, groups=1):
         super(ConvBNReLU, self).__init__(
             nn.Conv2d(in_planes, out_planes, kernel_size, stride, 0, dilation=dilation, groups=groups, bias=False),
@@ -41,6 +36,9 @@ class ConvBNReLU(nn.Sequential):
         )
 
 def fixed_padding(kernel_size, dilation):
+    """
+    Calculates the padding needed for a convolution to maintain spatial resolution.
+    """
     kernel_size_effective = kernel_size + (kernel_size - 1) * (dilation - 1)
     pad_total = kernel_size_effective - 1
     pad_beg = pad_total // 2
@@ -48,6 +46,10 @@ def fixed_padding(kernel_size, dilation):
     return (pad_beg, pad_end, pad_beg, pad_end) 
 
 class InvertedResidual(nn.Module):
+    """
+    The main building block of the MobileNetV2 architecture.
+    It uses an inverted residual structure with depthwise separable convolutions.
+    """
     def __init__(self, inp, oup, stride, dilation, expand_ratio):
         super(InvertedResidual, self).__init__()
         self.stride = stride
@@ -77,17 +79,11 @@ class InvertedResidual(nn.Module):
             return self.conv(x_pad)
 
 class MobileNetV2(nn.Module):
+    """
+    The main MobileNetV2 model class.
+    This has been adapted to support dilated convolutions for semantic segmentation.
+    """
     def __init__(self, num_classes=1000, output_stride=8, width_mult=1.0, inverted_residual_setting=None, round_nearest=8):
-        """
-        MobileNet V2 main class
-
-        Args:
-            num_classes (int): Number of classes
-            width_mult (float): Width multiplier - adjusts number of channels in each layer by this amount
-            inverted_residual_setting: Network structure
-            round_nearest (int): Round the number of channels in each layer to be a multiple of this number
-            Set to 1 to turn off rounding
-        """
         super(MobileNetV2, self).__init__()
         block = InvertedResidual
         input_channel = 32
@@ -163,12 +159,7 @@ class MobileNetV2(nn.Module):
 
 def mobilenet_v2(pretrained=False, progress=True, **kwargs):
     """
-    Constructs a MobileNetV2 architecture from
-    `"MobileNetV2: Inverted Residuals and Linear Bottlenecks" <https://arxiv.org/abs/1801.04381>`_.
-
-    Args:
-        pretrained (bool): If True, returns a model pre-trained on ImageNet
-        progress (bool): If True, displays a progress bar of the download to stderr
+    Constructs a MobileNetV2 model and optionally loads pretrained weights from ImageNet.
     """
     model = MobileNetV2(**kwargs)
     if pretrained:

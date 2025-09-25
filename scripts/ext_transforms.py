@@ -8,13 +8,12 @@ import numpy as np
 from PIL import Image
 
 
-#
-#  Extended Transforms for Semantic Segmentation
-#
 class ExtRandomHorizontalFlip(object):
-    """Horizontally flip the given PIL Image randomly with a given probability.
-    Args:
-        p (float): probability of the image being flipped. Default value is 0.5
+    """
+    Randomly flips an image and its corresponding label horizontally.
+    
+    Attributes:
+        p (float): The probability of the flip being applied.
     """
 
     def __init__(self, p=0.5):
@@ -22,10 +21,14 @@ class ExtRandomHorizontalFlip(object):
 
     def __call__(self, img, lbl):
         """
+        Applies the transform to an image and its label.
+
         Args:
-            img (PIL Image): Image to be flipped.
+            img (PIL Image): The input image.
+            lbl (PIL Image): The corresponding label mask.
+
         Returns:
-            PIL Image: Randomly flipped image.
+            A tuple of (PIL Image, PIL Image): The transformed image and label.
         """
         if random.random() < self.p:
             return F.hflip(img), F.hflip(lbl)
@@ -35,22 +38,28 @@ class ExtRandomHorizontalFlip(object):
         return self.__class__.__name__ + '(p={})'.format(self.p)
 
 
-
 class ExtCompose(object):
-    """Composes several transforms together.
-    Args:
-        transforms (list of ``Transform`` objects): list of transforms to compose.
-    Example:
-        >>> transforms.Compose([
-        >>>     transforms.CenterCrop(10),
-        >>>     transforms.ToTensor(),
-        >>> ])
     """
+    A sequence of transformations to be applied to an image and its label.
+    Works like torchvision.transforms.Compose but for both image and label.
 
+    Attributes:
+        transforms (list): A list of transform objects to apply in order.
+    """
     def __init__(self, transforms):
         self.transforms = transforms
 
     def __call__(self, img, lbl):
+        """
+        Applies the sequence of transforms.
+
+        Args:
+            img (PIL Image): The input image.
+            lbl (PIL Image): The corresponding label mask.
+
+        Returns:
+            A tuple of (PIL Image, PIL Image): The transformed image and label.
+        """
         for t in self.transforms:
             img, lbl = t(img, lbl)
         return img, lbl
@@ -65,13 +74,12 @@ class ExtCompose(object):
 
 
 class ExtCenterCrop(object):
-    """Crops the given PIL Image at the center.
-    Args:
-        size (sequence or int): Desired output size of the crop. If size is an
-            int instead of sequence like (h, w), a square crop (size, size) is
-            made.
     """
+    Crops the center of an image and its label to a specified size.
 
+    Attributes:
+        size (tuple): The desired output size (height, width) for the crop.
+    """
     def __init__(self, size):
         if isinstance(size, numbers.Number):
             self.size = (int(size), int(size))
@@ -80,10 +88,14 @@ class ExtCenterCrop(object):
 
     def __call__(self, img, lbl):
         """
+        Applies the center crop.
+
         Args:
-            img (PIL Image): Image to be cropped.
+            img (PIL Image): The input image.
+            lbl (PIL Image): The corresponding label mask.
+
         Returns:
-            PIL Image: Cropped image.
+            A tuple of (PIL Image, PIL Image): The cropped image and label.
         """
         return F.center_crop(img, self.size), F.center_crop(lbl, self.size)
 
@@ -92,18 +104,29 @@ class ExtCenterCrop(object):
 
 
 class ExtRandomScale(object):
+    """
+    Resizes an image and label by a random scaling factor.
+
+    The scaling factor is chosen uniformly from a given range.
+
+    Attributes:
+        scale_range (tuple): A tuple (min_scale, max_scale) for the random scaling.
+        interpolation: The interpolation method to use for resizing the image.
+    """
     def __init__(self, scale_range, interpolation=Image.BILINEAR):
         self.scale_range = scale_range
         self.interpolation = interpolation
 
     def __call__(self, img, lbl):
         """
+        Applies the random scaling.
+
         Args:
-            img (PIL Image): Image to be scaled.
-            lbl (PIL Image): Label to be scaled.
+            img (PIL Image): The input image.
+            lbl (PIL Image): The corresponding label mask.
+
         Returns:
-            PIL Image: Rescaled image.
-            PIL Image: Rescaled label.
+            A tuple of (PIL Image, PIL Image): The rescaled image and label.
         """
         assert img.size == lbl.size
         scale = random.uniform(self.scale_range[0], self.scale_range[1])
@@ -115,28 +138,30 @@ class ExtRandomScale(object):
         return self.__class__.__name__ + '(size={0}, interpolation={1})'.format(self.size, interpolate_str)
 
 class ExtScale(object):
-    """Resize the input PIL Image to the given scale.
-    Args:
-        Scale (sequence or int): scale factors
-        interpolation (int, optional): Desired interpolation. Default is
-            ``PIL.Image.BILINEAR``
     """
+    Resizes an image and label by a fixed scaling factor.
 
+    Attributes:
+        scale (float): The scaling factor to apply.
+        interpolation: The interpolation method for image resizing.
+    """
     def __init__(self, scale, interpolation=Image.BILINEAR):
         self.scale = scale
         self.interpolation = interpolation
 
     def __call__(self, img, lbl):
         """
+        Applies the fixed scaling.
+
         Args:
-            img (PIL Image): Image to be scaled.
-            lbl (PIL Image): Label to be scaled.
+            img (PIL Image): The input image.
+            lbl (PIL Image): The corresponding label mask.
+
         Returns:
-            PIL Image: Rescaled image.
-            PIL Image: Rescaled label.
+            A tuple of (PIL Image, PIL Image): The rescaled image and label.
         """
         assert img.size == lbl.size
-        target_size = ( int(img.size[1]*self.scale), int(img.size[0]*self.scale) ) # (H, W)
+        target_size = ( int(img.size[1]*self.scale), int(img.size[0]*self.scale) )
         return F.resize(img, target_size, self.interpolation), F.resize(lbl, target_size, Image.NEAREST)
 
     def __repr__(self):
@@ -145,22 +170,11 @@ class ExtScale(object):
 
 
 class ExtRandomRotation(object):
-    """Rotate the image by angle.
-    Args:
-        degrees (sequence or float or int): Range of degrees to select from.
-            If degrees is a number instead of sequence like (min, max), the range of degrees
-            will be (-degrees, +degrees).
-        resample ({PIL.Image.NEAREST, PIL.Image.BILINEAR, PIL.Image.BICUBIC}, optional):
-            An optional resampling filter.
-            See http://pillow.readthedocs.io/en/3.4.x/handbook/concepts.html#filters
-            If omitted, or if the image has mode "1" or "P", it is set to PIL.Image.NEAREST.
-        expand (bool, optional): Optional expansion flag.
-            If true, expands the output to make it large enough to hold the entire rotated image.
-            If false or omitted, make the output image the same size as the input image.
-            Note that the expand flag assumes rotation around the center and no translation.
-        center (2-tuple, optional): Optional center of rotation.
-            Origin is the upper left corner.
-            Default is the center of the image.
+    """
+    Rotates an image and its label by a random angle.
+
+    Attributes:
+        degrees (tuple): The range of angles to choose from for the rotation.
     """
 
     def __init__(self, degrees, resample=False, expand=False, center=None):
@@ -179,25 +193,30 @@ class ExtRandomRotation(object):
 
     @staticmethod
     def get_params(degrees):
-        """Get parameters for ``rotate`` for a random rotation.
+        """
+        Selects a random angle from the specified degree range.
+        
+        Args:
+            degrees (tuple): A tuple (min_angle, max_angle).
+        
         Returns:
-            sequence: params to be passed to ``rotate`` for random rotation.
+            (float): A random angle.
         """
         angle = random.uniform(degrees[0], degrees[1])
-
         return angle
 
     def __call__(self, img, lbl):
         """
-            img (PIL Image): Image to be rotated.
-            lbl (PIL Image): Label to be rotated.
+        Applies the random rotation.
+
+        Args:
+            img (PIL Image): The input image.
+            lbl (PIL Image): The corresponding label mask.
+
         Returns:
-            PIL Image: Rotated image.
-            PIL Image: Rotated label.
+            A tuple of (PIL Image, PIL Image): The rotated image and label.
         """
-
         angle = self.get_params(self.degrees)
-
         return F.rotate(img, angle, self.resample, self.expand, self.center), F.rotate(lbl, angle, self.resample, self.expand, self.center)
 
     def __repr__(self):
@@ -209,47 +228,26 @@ class ExtRandomRotation(object):
         format_string += ')'
         return format_string
 
-class ExtRandomHorizontalFlip(object):
-    """Horizontally flip the given PIL Image randomly with a given probability.
-    Args:
-        p (float): probability of the image being flipped. Default value is 0.5
-    """
-
-    def __init__(self, p=0.5):
-        self.p = p
-
-    def __call__(self, img, lbl):
-        """
-        Args:
-            img (PIL Image): Image to be flipped.
-        Returns:
-            PIL Image: Randomly flipped image.
-        """
-        if random.random() < self.p:
-            return F.hflip(img), F.hflip(lbl)
-        return img, lbl
-
-    def __repr__(self):
-        return self.__class__.__name__ + '(p={})'.format(self.p)
-
-
 class ExtRandomVerticalFlip(object):
-    """Vertically flip the given PIL Image randomly with a given probability.
-    Args:
-        p (float): probability of the image being flipped. Default value is 0.5
     """
+    Randomly flips an image and its corresponding label vertically.
 
+    Attributes:
+        p (float): The probability of the flip being applied.
+    """
     def __init__(self, p=0.5):
         self.p = p
 
     def __call__(self, img, lbl):
         """
+        Applies the transform to an image and its label.
+
         Args:
-            img (PIL Image): Image to be flipped.
-            lbl (PIL Image): Label to be flipped.
+            img (PIL Image): The input image.
+            lbl (PIL Image): The corresponding label mask.
+
         Returns:
-            PIL Image: Randomly flipped image.
-            PIL Image: Randomly flipped label.
+            A tuple of (PIL Image, PIL Image): The transformed image and label.
         """
         if random.random() < self.p:
             return F.vflip(img), F.vflip(lbl)
@@ -259,10 +257,27 @@ class ExtRandomVerticalFlip(object):
         return self.__class__.__name__ + '(p={})'.format(self.p)
 
 class ExtPad(object):
+    """
+    Pads an image and label so their dimensions are divisible by a number.
+    This can be useful to ensure compatibility with network architectures.
+
+    Attributes:
+        diviser (int): The number that the dimensions should be divisible by.
+    """
     def __init__(self, diviser=32):
         self.diviser = diviser
     
     def __call__(self, img, lbl):
+        """
+        Applies padding to the image and label.
+
+        Args:
+            img (PIL Image): The input image.
+            lbl (PIL Image): The corresponding label mask.
+        
+        Returns:
+            A tuple of (PIL Image, PIL Image): The padded image and label.
+        """
         h, w = img.size
         ph = (h//32+1)*32 - h if h%32!=0 else 0
         pw = (w//32+1)*32 - w if w%32!=0 else 0
@@ -271,21 +286,24 @@ class ExtPad(object):
         return im, lbl
 
 class ExtToTensor(object):
-    """Convert a ``PIL Image`` or ``numpy.ndarray`` to tensor.
-    Converts a PIL Image or numpy.ndarray (H x W x C) in the range
-    [0, 255] to a torch.FloatTensor of shape (C x H x W) in the range [0.0, 1.0].
+    """
+    Converts a PIL Image or numpy array to a PyTorch tensor.
+    The image is normalized to [0, 1], but the label is not.
     """
     def __init__(self, normalize=True, target_type='uint8'):
         self.normalize = normalize
         self.target_type = target_type
+
     def __call__(self, pic, lbl):
         """
-        Note that labels will not be normalized to [0, 1].
+        Applies the conversion.
+
         Args:
-            pic (PIL Image or numpy.ndarray): Image to be converted to tensor.
-            lbl (PIL Image or numpy.ndarray): Label to be converted to tensor. 
+            pic (PIL Image or numpy.ndarray): The input image.
+            lbl (PIL Image or numpy.ndarray): The corresponding label mask.
+
         Returns:
-            Tensor: Converted image and label
+            A tuple of (Tensor, Tensor): The converted image and label tensors.
         """
         if self.normalize:
             return F.to_tensor(pic), torch.from_numpy( np.array( lbl, dtype=self.target_type) )
@@ -296,27 +314,28 @@ class ExtToTensor(object):
         return self.__class__.__name__ + '()'
 
 class ExtNormalize(object):
-    """Normalize a tensor image with mean and standard deviation.
-    Given mean: ``(M1,...,Mn)`` and std: ``(S1,..,Sn)`` for ``n`` channels, this transform
-    will normalize each channel of the input ``torch.*Tensor`` i.e.
-    ``input[channel] = (input[channel] - mean[channel]) / std[channel]``
-    Args:
-        mean (sequence): Sequence of means for each channel.
-        std (sequence): Sequence of standard deviations for each channel.
     """
-
+    Normalizes an image tensor using a given mean and standard deviation.
+    The label tensor is passed through unchanged.
+    
+    Attributes:
+        mean (list): The mean for each channel.
+        std (list): The standard deviation for each channel.
+    """
     def __init__(self, mean, std):
         self.mean = mean
         self.std = std
 
     def __call__(self, tensor, lbl):
         """
+        Applies the normalization to the image tensor.
+
         Args:
-            tensor (Tensor): Tensor image of size (C, H, W) to be normalized.
-            tensor (Tensor): Tensor of label. A dummy input for ExtCompose
+            tensor (Tensor): The image tensor to normalize.
+            lbl (Tensor): The label tensor (unaffected).
+
         Returns:
-            Tensor: Normalized Tensor image.
-            Tensor: Unchanged Tensor label
+            A tuple of (Tensor, Tensor): The normalized image and original label.
         """
         return F.normalize(tensor, self.mean, self.std), lbl
 
@@ -325,19 +344,14 @@ class ExtNormalize(object):
 
 
 class ExtRandomCrop(object):
-    """Crop the given PIL Image at a random location.
-    Args:
-        size (sequence or int): Desired output size of the crop. If size is an
-            int instead of sequence like (h, w), a square crop (size, size) is
-            made.
-        padding (int or sequence, optional): Optional padding on each border
-            of the image. Default is 0, i.e no padding. If a sequence of length
-            4 is provided, it is used to pad left, top, right, bottom borders
-            respectively.
-        pad_if_needed (boolean): It will pad the image if smaller than the
-            desired size to avoid raising an exception.
     """
+    Crops an image and label at a random location.
 
+    Attributes:
+        size (tuple): The desired output size (height, width) for the crop.
+        padding (int): Padding to add to the image before cropping.
+        pad_if_needed (bool): If true, pads the image if it's smaller than the crop size.
+    """
     def __init__(self, size, padding=0, pad_if_needed=False):
         if isinstance(size, numbers.Number):
             self.size = (int(size), int(size))
@@ -348,12 +362,15 @@ class ExtRandomCrop(object):
 
     @staticmethod
     def get_params(img, output_size):
-        """Get parameters for ``crop`` for a random crop.
+        """
+        Calculates random crop coordinates.
+
         Args:
-            img (PIL Image): Image to be cropped.
-            output_size (tuple): Expected output size of the crop.
+            img (PIL Image): The image to be cropped.
+            output_size (tuple): The desired crop size (height, width).
+
         Returns:
-            tuple: params (i, j, h, w) to be passed to ``crop`` for random crop.
+            A tuple of (int, int, int, int): The top-left coordinates and size (i, j, h, w).
         """
         w, h = img.size
         th, tw = output_size
@@ -366,24 +383,24 @@ class ExtRandomCrop(object):
 
     def __call__(self, img, lbl):
         """
+        Applies the random crop.
+
         Args:
-            img (PIL Image): Image to be cropped.
-            lbl (PIL Image): Label to be cropped.
+            img (PIL Image): The input image.
+            lbl (PIL Image): The corresponding label mask.
+
         Returns:
-            PIL Image: Cropped image.
-            PIL Image: Cropped label.
+            A tuple of (PIL Image, PIL Image): The cropped image and label.
         """
         assert img.size == lbl.size, 'size of img and lbl should be the same. %s, %s'%(img.size, lbl.size)
         if self.padding > 0:
             img = F.pad(img, self.padding)
             lbl = F.pad(lbl, self.padding)
 
-        # pad the width if needed
         if self.pad_if_needed and img.size[0] < self.size[1]:
             img = F.pad(img, padding=int((1 + self.size[1] - img.size[0]) / 2))
             lbl = F.pad(lbl, padding=int((1 + self.size[1] - lbl.size[0]) / 2))
 
-        # pad the height if needed
         if self.pad_if_needed and img.size[1] < self.size[0]:
             img = F.pad(img, padding=int((1 + self.size[0] - img.size[1]) / 2))
             lbl = F.pad(lbl, padding=int((1 + self.size[0] - lbl.size[1]) / 2))
@@ -397,28 +414,28 @@ class ExtRandomCrop(object):
 
 
 class ExtResize(object):
-    """Resize the input PIL Image to the given size.
-    Args:
-        size (sequence or int): Desired output size. If size is a sequence like
-            (h, w), output size will be matched to this. If size is an int,
-            smaller edge of the image will be matched to this number.
-            i.e, if height > width, then image will be rescaled to
-            (size * height / width, size)
-        interpolation (int, optional): Desired interpolation. Default is
-            ``PIL.Image.BILINEAR``
     """
+    Resizes an image and its label to a given size.
 
+    Attributes:
+        size (int or tuple): The desired output size.
+        interpolation: The interpolation method for image resizing.
+    """
     def __init__(self, size, interpolation=Image.BILINEAR):
-        assert isinstance(size, int) or (isinstance(size, collections.Iterable) and len(size) == 2)
+        assert isinstance(size, int) or (isinstance(size, collections.abc.Iterable) and len(size) == 2)
         self.size = size
         self.interpolation = interpolation
 
     def __call__(self, img, lbl):
         """
+        Applies the resizing.
+
         Args:
-            img (PIL Image): Image to be scaled.
+            img (PIL Image): The input image.
+            lbl (PIL Image): The corresponding label mask.
+
         Returns:
-            PIL Image: Rescaled image.
+            A tuple of (PIL Image, PIL Image): The resized image and label.
         """
         return F.resize(img, self.size, self.interpolation), F.resize(lbl, self.size, Image.NEAREST)
 
@@ -427,27 +444,16 @@ class ExtResize(object):
         return self.__class__.__name__ + '(size={0}, interpolation={1})'.format(self.size, interpolate_str) 
     
 class ExtColorJitter(object):
-    """Randomly change the brightness, contrast and saturation of an image.
-    Args:
-        brightness (float or tuple of float (min, max)): How much to jitter brightness.
-            brightness_factor is chosen uniformly from [max(0, 1 - brightness), 1 + brightness]
-            or the given [min, max]. Should be non negative numbers.
-        contrast (float or tuple of float (min, max)): How much to jitter contrast.
-            contrast_factor is chosen uniformly from [max(0, 1 - contrast), 1 + contrast]
-            or the given [min, max]. Should be non negative numbers.
-        saturation (float or tuple of float (min, max)): How much to jitter saturation.
-            saturation_factor is chosen uniformly from [max(0, 1 - saturation), 1 + saturation]
-            or the given [min, max]. Should be non negative numbers.
-        hue (float or tuple of float (min, max)): How much to jitter hue.
-            hue_factor is chosen uniformly from [-hue, hue] or the given [min, max].
-            Should have 0<= hue <= 0.5 or -0.5 <= min <= max <= 0.5.
+    """
+    Randomly changes the brightness, contrast, and saturation of an image.
+    The label is not affected.
     """
     def __init__(self, brightness=0, contrast=0, saturation=0, hue=0):
         self.brightness = self._check_input(brightness, 'brightness')
         self.contrast = self._check_input(contrast, 'contrast')
         self.saturation = self._check_input(saturation, 'saturation')
         self.hue = self._check_input(hue, 'hue', center=0, bound=(-0.5, 0.5),
-                                     clip_first_on_zero=False)
+                                         clip_first_on_zero=False)
 
     def _check_input(self, value, name, center=1, bound=(0, float('inf')), clip_first_on_zero=True):
         if isinstance(value, numbers.Number):
@@ -462,19 +468,14 @@ class ExtColorJitter(object):
         else:
             raise TypeError("{} should be a single number or a list/tuple with lenght 2.".format(name))
 
-        # if value is 0 or (1., 1.) for brightness/contrast/saturation
-        # or (0., 0.) for hue, do nothing
         if value[0] == value[1] == center:
             value = None
         return value
 
     @staticmethod
     def get_params(brightness, contrast, saturation, hue):
-        """Get a randomized transform to be applied on image.
-        Arguments are same as that of __init__.
-        Returns:
-            Transform which randomly adjusts brightness, contrast and
-            saturation in a random order.
+        """
+        Gets a randomized list of transforms to apply.
         """
         transforms = []
 
@@ -501,10 +502,14 @@ class ExtColorJitter(object):
 
     def __call__(self, img, lbl):
         """
+        Applies the color jittering to the image.
+
         Args:
-            img (PIL Image): Input image.
+            img (PIL Image): The input image.
+            lbl (PIL Image): The label (unaffected).
+
         Returns:
-            PIL Image: Color jittered image.
+            A tuple of (PIL Image, PIL Image): The transformed image and original label.
         """
         transform = self.get_params(self.brightness, self.contrast,
                                     self.saturation, self.hue)
@@ -519,11 +524,9 @@ class ExtColorJitter(object):
         return format_string
 
 class Lambda(object):
-    """Apply a user-defined lambda as a transform.
-    Args:
-        lambd (function): Lambda/function to be used for transform.
     """
-
+    A simple wrapper to apply a lambda function as a transform.
+    """
     def __init__(self, lambd):
         assert callable(lambd), repr(type(lambd).__name__) + " object is not callable"
         self.lambd = lambd
@@ -536,16 +539,10 @@ class Lambda(object):
 
 
 class Compose(object):
-    """Composes several transforms together.
-    Args:
-        transforms (list of ``Transform`` objects): list of transforms to compose.
-    Example:
-        >>> transforms.Compose([
-        >>>     transforms.CenterCrop(10),
-        >>>     transforms.ToTensor(),
-        >>> ])
     """
-
+    A sequence of transformations to be applied to a single image.
+    Used internally by ExtColorJitter.
+    """
     def __init__(self, transforms):
         self.transforms = transforms
 
