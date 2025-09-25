@@ -14,10 +14,11 @@ import scripts
 from scripts import ext_transforms as et
 from metrics import StreamSegMetrics
 from datasets import PaintedSymbols
-from torch.scripts import data
+from torch.utils import data
 from scripts.visualizer import Visualizer
 
 def get_argparser():
+    """Sets up the command-line argument parser for the training script."""
     parser = argparse.ArgumentParser(description="DeepLabV3+ for Road Marking Segmentation")
 
     parser.add_argument("--dataset_csv", type=str, required=True, help="Path to the master CSV file for the dataset.")
@@ -57,7 +58,15 @@ def get_argparser():
     return parser
 
 def get_dataset(opts):
-    """ Configure dataloaders """
+    """
+    Configures the datasets and transformations for training and validation.
+
+    Args:
+        opts: Command-line arguments containing dataset and augmentation details.
+
+    Returns:
+        A tuple containing the training and validation datasets.
+    """
     train_transform = et.ExtCompose([
         et.ExtRandomScale((0.5, 2.0)),
         et.ExtRandomCrop(size=(opts.crop_size, opts.crop_size), pad_if_needed=True),
@@ -77,7 +86,22 @@ def get_dataset(opts):
     return train_dst, val_dst
 
 def validate(opts, model, loader, device, metrics, ret_samples_ids=None):
-    """Do validation and return specified samples"""
+    """
+    Runs validation on the model and computes metrics.
+
+    Args:
+        opts: Command-line arguments.
+        model: The PyTorch model to evaluate.
+        loader: The DataLoader for the validation set.
+        device: The device to run evaluation on (e.g., 'cuda' or 'cpu').
+        metrics: An object to compute segmentation metrics.
+        ret_samples_ids: Optional list of batch indices to return for visualization.
+
+    Returns:
+        A tuple containing:
+        - score: A dictionary of computed metrics (e.g., Mean IoU).
+        - ret_samples: A list of samples for visualization.
+    """
     metrics.reset()
     ret_samples = []
     if opts.save_val_results:
@@ -114,6 +138,12 @@ def validate(opts, model, loader, device, metrics, ret_samples_ids=None):
     return score, ret_samples
 
 def main():
+    """
+    Main function for training the segmentation model.
+
+    This function handles argument parsing, device setup, data loading, model
+    initialization, and the main training loop.
+    """
     opts = get_argparser().parse_args()
 
     vis = Visualizer(port=opts.vis_port, env=opts.vis_env) if opts.enable_vis else None
@@ -155,7 +185,7 @@ def main():
 
     if opts.lr_policy == 'poly':
         scheduler = scripts.PolyLR(optimizer, opts.total_itrs, power=0.9)
-    else: # step
+    else:
         scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=opts.step_size, gamma=0.1)
 
     criterion = nn.CrossEntropyLoss(ignore_index=255, reduction='mean')

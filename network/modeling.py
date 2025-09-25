@@ -6,6 +6,12 @@ from .backbone import (
 )
 
 def _segm_resnet(name, backbone_name, num_classes, output_stride, pretrained_backbone):
+    """
+    Builds a DeepLab model with a ResNet backbone.
+    
+    This is a helper function that configures the ResNet model based on the
+    desired output stride and then connects it to the appropriate DeepLab head.
+    """
     if output_stride == 8:
         replace_stride_with_dilation = [False, True, True]
         aspp_dilate = [12, 24, 36]
@@ -32,6 +38,12 @@ def _segm_resnet(name, backbone_name, num_classes, output_stride, pretrained_bac
     return model
 
 def _segm_mobilenet(name, backbone_name, num_classes, output_stride, pretrained_backbone):
+    """
+    Builds a DeepLab model with a MobileNetV2 backbone.
+
+    Similar to the ResNet helper, this function prepares the MobileNetV2
+    backbone and connects it to the DeepLab head.
+    """
     if output_stride == 8:
         aspp_dilate = [12, 24, 36]
     else:
@@ -59,6 +71,9 @@ def _segm_mobilenet(name, backbone_name, num_classes, output_stride, pretrained_
     return model
 
 def _load_model(arch_type, backbone, num_classes, output_stride, pretrained_backbone):
+    """
+    A general model loader that selects the correct backbone builder.
+    """
     if backbone == 'mobilenetv2':
         model = _segm_mobilenet(arch_type, backbone, num_classes, output_stride=output_stride, pretrained_backbone=pretrained_backbone)
     elif backbone.startswith('resnet'):
@@ -67,64 +82,38 @@ def _load_model(arch_type, backbone, num_classes, output_stride, pretrained_back
         raise NotImplementedError
     return model
 
-# Deeplab v3
 def deeplabv3_resnet50(num_classes=21, output_stride=8, pretrained_backbone=True):
-    """Constructs a DeepLabV3 model with a ResNet-50 backbone.
-
-    Args:
-        num_classes (int): number of classes.
-        output_stride (int): output stride for deeplab.
-        pretrained_backbone (bool): If True, use the pretrained backbone.
+    """
+    Loads a DeepLabV3 model with a ResNet-50 backbone.
     """
     return _load_model('deeplabv3', 'resnet50', num_classes, output_stride=output_stride, pretrained_backbone=pretrained_backbone)
 
 def deeplabv3_resnet101(num_classes=21, output_stride=8, pretrained_backbone=True):
-    """Constructs a DeepLabV3 model with a ResNet-101 backbone.
-
-    Args:
-        num_classes (int): number of classes.
-        output_stride (int): output stride for deeplab.
-        pretrained_backbone (bool): If True, use the pretrained backbone.
+    """
+    Loads a DeepLabV3 model with a ResNet-101 backbone.
     """
     return _load_model('deeplabv3', 'resnet101', num_classes, output_stride=output_stride, pretrained_backbone=pretrained_backbone)
 
 def deeplabv3_mobilenet(num_classes=21, output_stride=8, pretrained_backbone=True, **kwargs):
-    """Constructs a DeepLabV3 model with a MobileNetv2 backbone.
-
-    Args:
-        num_classes (int): number of classes.
-        output_stride (int): output stride for deeplab.
-        pretrained_backbone (bool): If True, use the pretrained backbone.
+    """
+    Loads a DeepLabV3 model with a MobileNetV2 backbone.
     """
     return _load_model('deeplabv3', 'mobilenetv2', num_classes, output_stride=output_stride, pretrained_backbone=pretrained_backbone)
 
-# Deeplab v3+
 def deeplabv3plus_resnet50(num_classes=21, output_stride=8, pretrained_backbone=True):
-    """Constructs a DeepLabV3 model with a ResNet-50 backbone.
-
-    Args:
-        num_classes (int): number of classes.
-        output_stride (int): output stride for deeplab.
-        pretrained_backbone (bool): If True, use the pretrained backbone.
+    """
+    Loads a DeepLabV3+ model with a ResNet-50 backbone.
     """
     return _load_model('deeplabv3plus', 'resnet50', num_classes, output_stride=output_stride, pretrained_backbone=pretrained_backbone)
 
 def deeplabv3plus_resnet101(num_classes=21, output_stride=8, pretrained_backbone=True):
-    """Constructs a DeepLabV3+ model with a ResNet-101 backbone.
-
-    Args:
-        num_classes (int): number of classes.
-        output_stride (int): output stride for deeplab.
-        pretrained_backbone (bool): If True, use the pretrained backbone.
+    """
+    Loads a DeepLabV3+ model with a ResNet-101 backbone.
     """
     return _load_model('deeplabv3plus', 'resnet101', num_classes, output_stride=output_stride, pretrained_backbone=pretrained_backbone)
 
 def deeplabv3plus_mobilenet(num_classes=21, output_stride=8, pretrained_backbone=True):
-    """Constructs a DeepLabV3+ model with a MobileNetv2 backbone.
-
-    Args:
-        num_classes (int): number of classes.
-        output_stride (int): output stride for deeplab.
-        pretrained_backbone (bool): If True, use the pretrained backbone.
+    """
+    Loads a DeepLabV3+ model with a MobileNetV2 backbone.
     """
     return _load_model('deeplabv3plus', 'mobilenetv2', num_classes, output_stride=output_stride, pretrained_backbone=pretrained_backbone)
